@@ -59,7 +59,7 @@
                     <a href="https://www.webrtc-experiment.com/RecordRTC/">RecordRTC</a> Merging WebM/WAV into mp4 using <a href="http://bgrins.github.io/videoconverter.js/">ffmpeg-asm.js</a>!
                 </h1>            
                 <p>
-                    <a href="https://www.webrtc-experiment.com/">HOME</a>
+                    <a href="https://www.webrtc-experiment.com/ffmpeg/">HOME</a>
                     <span> &copy; </span>
                     <a href="http://www.MuazKhan.com/" target="_blank">Muaz Khan</a>
                     .
@@ -116,17 +116,24 @@
                             videoPreview.play();
 
                             recordAudio = RecordRTC(stream, {
-                                // bufferSize: 16384,
-                                onAudioProcessStarted: function() {
-                                    recordVideo.startRecording();
-                                }
+                                type: 'audio',
+                                recorderType: StereoAudioRecorder // force WebAudio for all browsers even for Firefox/MS-Edge
                             });
 
+                            // todo: Firefox supports MediaRecorder API
+                            // however it will record both audio/video tracks into single WebM
+                            // Need to construct a MediaStream that is having no audio tracks
                             recordVideo = RecordRTC(stream, {
                                 type: videoFile.indexOf('gif') == -1 ? 'video' : 'gif'
                             });
 
-                            recordAudio.startRecording();
+                            recordVideo.initRecorder(function() {
+                                recordAudio.initRecorder(function() {
+                                    recordVideo.startRecording();
+                                    recordAudio.startRecording();
+                                });
+                            });
+
                         }, function(error) { throw error;});
                     document.querySelector('#stop-recording-video').disabled = false;
                 };
@@ -136,7 +143,7 @@
 
                     recordAudio.stopRecording(function() {
                         recordVideo.stopRecording(function() {
-                            convertStreams(recordVideo.getBlob(), recordAudio.getBlob());
+                            convertStreams(recordVideo.blob, recordAudio.blob);
 
                             log('<a href="'+ workerPath +'" download="ffmpeg-asm.js">ffmpeg-asm.js</a> file download started. It is about 18MB in size; please be patient!');
                         });

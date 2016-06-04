@@ -6,7 +6,7 @@
 <!DOCTYPE html>
 <html lang="en">
     <head>
-        <title>RecordRTC WebM to mp4 using ffmpeg-asm.js ® Muaz Khan</title>
+        <title>Record audio+screen and get mp4! ® Muaz Khan</title>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
@@ -50,19 +50,20 @@
         
         <!-- script used for audio/video/gif recording -->
         <script src="https://cdn.webrtc-experiment.com/RecordRTC.js"> </script>
+
+        <script src="https://cdn.webrtc-experiment.com/getScreenId.js"></script>
     </head>
 
     <body>
         <article>
             <header style="text-align: center;">
                 <h1>
-                    <a href="https://www.webrtc-experiment.com/RecordRTC/">RecordRTC</a> WebM to mp4 using <a href="http://bgrins.github.io/videoconverter.js/">ffmpeg-asm.js</a>!
+                    Record audio+screen and get mp4!
                 </h1>            
                 <p>
                     <a href="https://www.webrtc-experiment.com/ffmpeg/">HOME</a>
                     <span> &copy; </span>
                     <a href="http://www.MuazKhan.com/" target="_blank">Muaz Khan</a>
-                    
                     .
                     <a href="http://twitter.com/WebRTCWeb" target="_blank" title="Twitter profile for WebRTC Experiments">@WebRTCWeb</a>
                     
@@ -83,55 +84,145 @@
                 <h2 class="header">Logs</h2>
                 <ol id="logs-preview">
                     <li>
-                        <a href="https://www.webrtc-experiment.com/RecordRTC/">RecordRTC</a> experiment converting WebM to mp4 inside the browser!
+                        <a href="https://www.webrtc-experiment.com/RecordRTC/">RecordRTC</a> experiment converting Merging WebM/WAV into mp4 inside the browser!
+                    </li>
+                    
+                    <li>
+                        <strong>ffmpeg-asm.js</strong> is integrated with <a href="https://www.webrtc-experiment.com/RecordRTC/">RecordRTC</a> by <strong>Gregory McGee</strong>!
                     </li>
                 </ol>
             </section>
             
             <section class="experiment">  
-                <h2 class="header">Record Video and convert into "mp4" using <a href="https://4dbefa02675a4cdb7fc25d009516b060a84a3b4b.googledrive.com/host/0B6GWd_dUUTT8WjhzNlloZmZtdzA/ffmpeg_asm.js" download="ffmpeg-asm.js">ffmpeg-asm.js</a>!</h2>
+                <h2 class="header">Record audio/screen and convert/merge into "mp4"!</h2>
 			
                 <div class="inner">
                     <button id="record-video">Record</button>
                     <button id="stop-recording-video" disabled>Stop</button>
                     <br>
-                    <video id="video-preview" controls></video>
+                    <video id="video-preview" controls muted></video>
                     <br>
                 </div>
             </section>
             <script>
-                var recordVideo;
+                var recordVideo, recordAudio;
                 var videoPreview = document.getElementById('video-preview');
                 var inner = document.querySelector('.inner');
                 var videoFile = !!navigator.mozGetUserMedia ? 'video.gif' : 'video.webm';
 
+                var isFirefox = !!navigator.mozGetUserMedia;
+
+                function captureScreenAndAudio(callback) {
+                    getScreenId(function(error, sourceId, screenConstraints) {
+                        if (error === 'not-installed') {
+                            document.write('<h1><a target="_blank" href="https://chrome.google.com/webstore/detail/screen-capturing/ajhifddimkapgcifgcodmmfdlknahffk">Please install this chrome extension then reload the page.</a></h1>');
+                        }
+                        if (error === 'permission-denied') {
+                            alert('Screen capturing permission is denied.');
+                        }
+                        if (error === 'installed-disabled') {
+                            alert('Please enable chrome screen capturing extension.');
+                        }
+
+                        if (error) {
+                            config.onMediaCapturingFailed(error);
+                            return;
+                        }
+                        // first getUserMedia for screen
+                        // note: Firefox supports both audio+screen capturing in single getUserMedia
+                        navigator.getUserMedia(screenConstraints, function(screenStream) {
+                            // second getUserMedia for audio
+                            navigator.getUserMedia({
+                                audio: true
+                            }, function(audioStream) {
+                                callback(screenStream, audioStream);
+                            }, function(error) {
+                                alert(JSON.stringify(error, null, '\t'));
+                            });
+                        }, function(error) {
+                            alert(JSON.stringify(error, null, '\t'));
+                        });
+                    });
+                }
+
                 document.querySelector('#record-video').onclick = function() {
                     this.disabled = true;
-                    navigator.getUserMedia({
-                            video: true
-                        }, function(stream) {
-                            videoPreview.src = window.URL.createObjectURL(stream);
+
+                    captureScreenAndAudio(function(screenStream, audioStream) {
+                        screenStream.onended = function() {
+                            document.querySelector('#stop-recording-video').onclick();
+                        };
+                        
+                        videoPreview.style.position = 'absolute';
+                        videoPreview.style.top = 0;
+                        videoPreview.style.left = 0;
+                        videoPreview.style['object-fill'] = 'fill';
+                        videoPreview.style.width = '100%';
+                        videoPreview.style.height = '100%';
+                        videoPreview.style.zIndex = 9999999999999;
+
+                        videoPreview.src = window.URL.createObjectURL(screenStream);
                             videoPreview.play();
 
-                            recordVideo = RecordRTC(stream, {
-                                type: 'video',
-                                recorderType: !!navigator.mozGetUserMedia ? MediaStreamRecorder : WhammyRecorder
+                            recordAudio = RecordRTC(audioStream, {
+                                type: isFirefox ? 'video' : 'audio',
+                                // bufferSize: 16384,
+                                recorderType: isFirefox ? MediaStreamRecorder : StereoAudioRecorder // force WebAudio for all browsers even for Firefox/MS-Edge
                             });
+                            recordAudio.stream = audioStream;
 
-                            recordVideo.startRecording();
-                        }, function(error) { throw error;});
+                            // todo: Firefox supports MediaRecorder API
+                            // however it will record both audio/video tracks into single WebM
+                            // Need to construct a MediaStream that is having no audio tracks
+                            recordVideo = RecordRTC(screenStream, {
+                                type: 'video',
+                                recorderType: isFirefox ? MediaStreamRecorder : WhammyRecorder,
+                                canvas: {
+                                    width: 360,
+                                    height: 240
+                                },
+                                video: videoPreview,
+                                frameInterval: 90 // 30 milliseconds
+                            });
+                            recordVideo.stream = screenStream;
+
+                            recordVideo.initRecorder(function() {
+                                recordAudio.initRecorder(function() {
+                                    recordVideo.startRecording();
+                                    recordAudio.startRecording();
+                                });
+                            });
+                    });
+
                     document.querySelector('#stop-recording-video').disabled = false;
                 };
 
                 document.querySelector('#stop-recording-video').onclick = function() {
+                    if(!recordVideo.stream) return;
+
                     this.disabled = true;
 
-                    recordVideo.stopRecording(function(url) {
-                        videoPreview.src = url;
-                        videoPreview.download = videoFile;
-                        
-                        log('<a href="'+ workerPath +'" download="ffmpeg-asm.js">ffmpeg-asm.js</a> file download started. It is about 18MB in size; please be patient!');
-                        convertStreams(recordVideo.getBlob());
+                    recordAudio.stopRecording(function() {
+                        recordVideo.stopRecording(function() {
+                            recordVideo.stream.onended = function() {};
+                            recordVideo.stream.stop();
+                            recordAudio.stream.stop();
+
+                            recordVideo.stream = null;
+                            recordAudio.stream = null;
+
+                            videoPreview.style.position = '';
+                            videoPreview.style.top = 'auto';
+                            videoPreview.style.left = 'auto';
+                            videoPreview.style['object-fill'] = 'initial';
+                            videoPreview.style.width = 360;
+                            videoPreview.style.height = 240;
+                            videoPreview.style.zIndex = 9999999999999;
+
+                            convertStreams(recordVideo.blob, recordAudio.blob);
+
+                            log('<a href="'+ workerPath +'" download="ffmpeg-asm.js">ffmpeg-asm.js</a> file download started. It is about 18MB in size; please be patient!');
+                        });
                     });
                 };
 
@@ -150,18 +241,32 @@
 
                 var worker;
 
-                function convertStreams(videoBlob) {
+                function convertStreams(videoBlob, audioBlob) {
+                    var vab;
                     var aab;
                     var buffersReady;
                     var workerReady;
-                    var posted;
+                    var posted = false;
 
-                    var fileReader = new FileReader();
-                    fileReader.onload = function() {
-                        aab = this.result;
-                        postMessage();
+                    var fileReader1 = new FileReader();
+                    fileReader1.onload = function() {
+                        vab = this.result;
+
+                        if (aab) buffersReady = true;
+
+                        if (buffersReady && workerReady && !posted) postMessage();
                     };
-                    fileReader.readAsArrayBuffer(videoBlob);
+                    var fileReader2 = new FileReader();
+                    fileReader2.onload = function() {
+                        aab = this.result;
+
+                        if (vab) buffersReady = true;
+
+                        if (buffersReady && workerReady && !posted) postMessage();
+                    };
+
+                    fileReader1.readAsArrayBuffer(videoBlob);
+                    fileReader2.readAsArrayBuffer(audioBlob);
 
                     if (!worker) {
                         worker = processInWebWorker();
@@ -171,7 +276,6 @@
                         var message = event.data;
                         if (message.type == "ready") {
                             log('<a href="'+ workerPath +'" download="ffmpeg-asm.js">ffmpeg-asm.js</a> file has been loaded.');
-
                             workerReady = true;
                             if (buffersReady)
                                 postMessage();
@@ -201,14 +305,21 @@
                             type: 'command',
                             arguments: [
                                 '-i', videoFile, 
+                                '-i', 'audio.wav', 
                                 '-c:v', 'mpeg4', 
-                                '-b:v', '6400k', 
+                                '-c:a', 'vorbis', 
+                                '-b:v', '48k', 
+                                '-b:a', '8k', 
                                 '-strict', 'experimental', 'output.mp4'
                             ],
                             files: [
                                 {
-                                    data: new Uint8Array(aab),
+                                    data: new Uint8Array(vab),
                                     name: videoFile
+                                },
+                                {
+                                    data: new Uint8Array(aab),
+                                    name: "audio.wav"
                                 }
                             ]
                         });
@@ -296,7 +407,7 @@
             </section>
 			
             <section class="experiment own-widgets latest-commits">
-                <h2 class="header" id="updates" style="color: red; padding-bottom: .1em;"><a href="https://github.com/muaz-khan/WebRTC-Experiment/commits/master" target="_blank">Latest Updates</a></h2>
+                <h2 class="header" id="updates" style="color: red; padding-bottom: .1em;"><a href="https://github.com/muaz-khan/Ffmpeg.js/commits/master" target="_blank">Latest Updates</a></h2>
                 <div id="github-commits"></div>
             </section>  
         </article>
@@ -316,7 +427,7 @@
         <script>
             window.useThisGithubPath = 'muaz-khan/Ffmpeg.js';
         </script>
-        <script src="https://cdn.webrtc-experiment.com/commits.js" async> </script>
+        <script src="https://cdn.webrtc-experiment.com/commits.js" async> </script> 
         <script src="https://4dbefa02675a4cdb7fc25d009516b060a84a3b4b.googledrive.com/host/0B6GWd_dUUTT8WjhzNlloZmZtdzA/ffmpeg_asm.js" async> </script>
     </body>
 </html>

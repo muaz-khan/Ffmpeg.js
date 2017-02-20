@@ -2,7 +2,7 @@
 
 | Demo Name        | Demo           | Code |
 | ------------- |-------------|-------------|
-| Transcoding WAV into ACC | [Demo](https://www.webrtc-experiment.com/ffmpeg/wav-to-acc.html)  | [Source](https://github.com/muaz-khan/Ffmpeg.js/blob/master/wav-to-acc.html) |
+| Transcoding WAV into AAC | [Demo](https://www.webrtc-experiment.com/ffmpeg/wav-to-aac.html)  | [Source](https://github.com/muaz-khan/Ffmpeg.js/blob/master/wav-to-aac.html) |
 | Transcoding WAV into Ogg | [Demo](https://www.webrtc-experiment.com/ffmpeg/wav-to-ogg.html)  | [Source](https://github.com/muaz-khan/Ffmpeg.js/blob/master/wav-to-ogg.html) |
 | Transcoding WebM into mp4 | [Demo](https://www.webrtc-experiment.com/ffmpeg/webm-to-mp4.html)  | [Source](https://github.com/muaz-khan/Ffmpeg.js/blob/master/webm-to-mp4.html) |
 | Transcoding WebM into mp4; then merging WAV+mp4 into single mp4 | [Demo](https://www.webrtc-experiment.com/ffmpeg/merging-wav-and-webm-into-mp4.html)  | [Source](https://github.com/muaz-khan/Ffmpeg.js/blob/master/merging-wav-and-webm-into-mp4.html) |

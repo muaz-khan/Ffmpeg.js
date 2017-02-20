@@ -6,7 +6,7 @@
 <!DOCTYPE html>
 <html lang="en">
     <head>
-        <title>RecordRTC Merging WebM/WAV into mp4 using ffmpeg-asm.js ® Muaz Khan</title>
+        <title>RecordRTC WAV to ACC using ffmpeg-asm.js ® Muaz Khan</title>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
@@ -17,10 +17,7 @@
         <link rel="stylesheet" href="https://cdn.webrtc-experiment.com/style.css">
 
         <style>
-            video {
-                vertical-align: bottom;
-                width: 300px;
-            }
+            audio { vertical-align: middle; }
 
             input {
                 border: 1px solid #d9d9d9;
@@ -56,12 +53,13 @@
         <article>
             <header style="text-align: center;">
                 <h1>
-                    <a href="https://www.webrtc-experiment.com/RecordRTC/">RecordRTC</a> Merging WebM/WAV into mp4 using <a href="http://bgrins.github.io/videoconverter.js/">ffmpeg-asm.js</a>!
+                    <a href="https://www.webrtc-experiment.com/RecordRTC/">RecordRTC</a> WAV to ACC using <a href="http://bgrins.github.io/videoconverter.js/">ffmpeg-asm.js</a>!
                 </h1>
                 <p>
                     <a href="https://www.webrtc-experiment.com/ffmpeg/">HOME</a>
                     <span> &copy; </span>
                     <a href="http://www.MuazKhan.com/" target="_blank">Muaz Khan</a>
+
                     .
                     <a href="http://twitter.com/WebRTCWeb" target="_blank" title="Twitter profile for WebRTC Experiments">@WebRTCWeb</a>
 
@@ -82,89 +80,69 @@
                 <h2 class="header">Logs</h2>
                 <ol id="logs-preview">
                     <li>
-                        <a href="https://www.webrtc-experiment.com/RecordRTC/">RecordRTC</a> experiment converting Merging WebM/WAV into mp4 inside the browser!
-                    </li>
-
-                    <li>
-                        <strong>ffmpeg-asm.js</strong> is integrated with <a href="https://www.webrtc-experiment.com/RecordRTC/">RecordRTC</a> by <strong>Gregory McGee</strong>!
+                        <a href="https://www.webrtc-experiment.com/RecordRTC/">RecordRTC</a> experiment converting WAV to ACC inside the browser!
                     </li>
                 </ol>
             </section>
 
             <section class="experiment">
-                <h2 class="header">Record audio/video and convert/merge into "mp4"!</h2>
+                <h2 class="header">Record Audio and convert into "ACC" using <a href="https://archive.org/download/ffmpeg_asm/ffmpeg_asm.js" download="ffmpeg-asm.js">ffmpeg-asm.js</a>!</h2>
 
                 <div class="inner">
-                    <button id="record-video">Record</button>
-                    <button id="stop-recording-video" disabled>Stop</button>
+                    <audio id="audio-preview" controls muted></audio>
                     <br>
-                    <video id="video-preview" controls muted></video>
+                    <button id="record-audio">Record</button>
+                    <button id="stop-recording-audio" disabled>Stop</button>
                     <br>
                 </div>
             </section>
             <script>
-                var recordVideo, recordAudio;
-                var videoPreview = document.getElementById('video-preview');
+                var recordAudio;
+                var audioPreview = document.getElementById('audio-preview');
                 var inner = document.querySelector('.inner');
-                var videoFile = !!navigator.mozGetUserMedia ? 'video.gif' : 'video.webm';
 
-                var isFirefox = !!navigator.mozGetUserMedia;
-
-                document.querySelector('#record-video').onclick = function() {
+                document.querySelector('#record-audio').onclick = function() {
                     this.disabled = true;
                     navigator.getUserMedia({
-                            audio: true,
-                            video: true
+                            audio: true
                         }, function(stream) {
-                            videoPreview.src = window.URL.createObjectURL(stream);
-                            videoPreview.play();
+                            audioPreview.src = window.URL.createObjectURL(stream);
+                            audioPreview.play();
 
                             recordAudio = RecordRTC(stream, {
-                                type: isFirefox ? 'video' : 'audio',
-                                recorderType: isFirefox ? MediaStreamRecorder : StereoAudioRecorder // force WebAudio for all browsers even for Firefox/MS-Edge
+                                bufferSize: 16384,
+                                recorderType: StereoAudioRecorder
                             });
 
-                            // todo: Firefox supports MediaRecorder API
-                            // however it will record both audio/video tracks into single WebM
-                            // Need to construct a MediaStream that is having no audio tracks
-                            recordVideo = RecordRTC(stream, {
-                                type: videoFile.indexOf('gif') == -1 ? 'video' : 'gif',
-                                recorderType: isFirefox ? MediaStreamRecorder : WhammyRecorder
-                            });
-
-                            if(isFirefox) {
-                                recordAudio.startRecording();
-                                return;
-                            }
-
-                            recordVideo.initRecorder(function() {
-                                recordAudio.initRecorder(function() {
-                                    recordVideo.startRecording();
-                                    recordAudio.startRecording();
-                                });
-                            });
-
+                            recordAudio.startRecording();
                         }, function(error) { throw error;});
-                    document.querySelector('#stop-recording-video').disabled = false;
+                    document.querySelector('#stop-recording-audio').disabled = false;
                 };
 
-                document.querySelector('#stop-recording-video').onclick = function() {
+                document.querySelector('#stop-recording-audio').onclick = function() {
                     this.disabled = true;
 
-                    recordAudio.stopRecording(function() {
+                    recordAudio.stopRecording(function(url) {
+                        if(!!navigator.mozGetUserMedia) { // remove this if-block if you still want to use ffmpeg-asm.js in Firefox.
+                            log('We do not need to use ffmpeg-asm.js in Firefox.');
+                            log('If you are still interested to use ffmpeg-asm.js in Firefox then set <a href="https://github.com/muaz-khan/RecordRTC#recordertype">this recorderType</a> parameter.');
+                            log('E.g. <code>recordAudio = RecordRTC(stream, { recordertype: StereoAudioRecorder });</code>');
 
-                        if(isFirefox) {
-                            convertStreams(recordAudio.blob, recordAudio.blob);
+                            var blob = new Blob([recordAudio.blob], {
+                                type:' audio/mp3'
+                            });
+                            audioPreview.src = URL.createObjectURL(blob);
+                            audioPreview.download = 'Orignal.mp3';
 
-                            log('<a href="'+ workerPath +'" download="ffmpeg-asm.js">ffmpeg-asm.js</a> file download started. It is about 18MB in size; please be patient!');
+                            PostBlob(blob);
                             return;
                         }
 
-                        recordVideo.stopRecording(function() {
-                            convertStreams(recordVideo.blob, recordAudio.blob);
+                        audioPreview.src = url;
+                        audioPreview.download = 'Orignal.wav';
 
-                            log('<a href="'+ workerPath +'" download="ffmpeg-asm.js">ffmpeg-asm.js</a> file download started. It is about 18MB in size; please be patient!');
-                        });
+                        log('<a href="'+ workerPath +'" download="ffmpeg-asm.js">ffmpeg-asm.js</a> file download started. It is about 18MB in size; please be patient!');
+                        convertStreams(recordAudio.getBlob());
                     });
                 };
 
@@ -185,32 +163,18 @@
 
                 var worker;
 
-                function convertStreams(videoBlob, audioBlob) {
-                    var vab;
+                function convertStreams(audioBlob) {
                     var aab;
                     var buffersReady;
                     var workerReady;
-                    var posted = false;
+                    var posted;
 
-                    var fileReader1 = new FileReader();
-                    fileReader1.onload = function() {
-                        vab = this.result;
-
-                        if (aab) buffersReady = true;
-
-                        if (buffersReady && workerReady && !posted) postMessage();
-                    };
-                    var fileReader2 = new FileReader();
-                    fileReader2.onload = function() {
+                    var fileReader = new FileReader();
+                    fileReader.onload = function() {
                         aab = this.result;
-
-                        if (vab) buffersReady = true;
-
-                        if (buffersReady && workerReady && !posted) postMessage();
+                        postMessage();
                     };
-
-                    fileReader1.readAsArrayBuffer(videoBlob);
-                    fileReader2.readAsArrayBuffer(audioBlob);
+                    fileReader.readAsArrayBuffer(audioBlob);
 
                     if (!worker) {
                         worker = processInWebWorker();
@@ -220,6 +184,7 @@
                         var message = event.data;
                         if (message.type == "ready") {
                             log('<a href="'+ workerPath +'" download="ffmpeg-asm.js">ffmpeg-asm.js</a> file has been loaded.');
+
                             workerReady = true;
                             if (buffersReady)
                                 postMessage();
@@ -234,7 +199,7 @@
                             log(JSON.stringify(result));
 
                             var blob = new Blob([result.data], {
-                                type: 'video/mp4'
+                                type: 'audio/mp3'
                             });
 
                             log(JSON.stringify(blob));
@@ -244,44 +209,29 @@
                     };
                     var postMessage = function() {
                         posted = true;
-
-                        if(isFirefox) {
-                            worker.postMessage({
-                                type: 'command',
-                                arguments: [
-                                    '-i', videoFile,
-                                    '-c:v', 'mpeg4',
-                                    '-c:a', 'vorbis',
-                                    '-b:v', '6400k',
-                                    '-b:a', '4800k',
-                                    '-strict', 'experimental', 'output.mp4'
-                                ],
-                                files: [
-                                    {
-                                        data: new Uint8Array(vab),
-                                        name: videoFile
-                                    }
-                                ]
-                            });
-                            return;
-                        }
+						
+						/*
+							[
+								'-i', 'audio.wav',
+								'-c:a', 'aac',
+								'-b:a', '96k',
+								'-bf', '2',
+								'-g', '90',
+								'-sc_threshold', '0',
+								'-ar', '32000',
+								'-strict', 'experimental', 'output.mp4'
+							]
+						*/
 
                         worker.postMessage({
                             type: 'command',
                             arguments: [
-                                '-i', videoFile,
                                 '-i', 'audio.wav',
-                                '-c:v', 'mpeg4',
-                                '-c:a', 'vorbis',
-                                '-b:v', '6400k',
-                                '-b:a', '4800k',
+                                '-c:a', 'aac',
+                                '-b:a', '96k',
                                 '-strict', 'experimental', 'output.mp4'
                             ],
                             files: [
-                                {
-                                    data: new Uint8Array(vab),
-                                    name: videoFile
-                                },
                                 {
                                     data: new Uint8Array(aab),
                                     name: "audio.wav"
@@ -292,28 +242,28 @@
                 }
 
                 function PostBlob(blob) {
-                    var video = document.createElement('video');
-                    video.controls = true;
+                    var audio = document.createElement('audio');
+                    audio.controls = true;
 
                     var source = document.createElement('source');
                     source.src = URL.createObjectURL(blob);
-                    source.type = 'video/mp4; codecs=mpeg4';
-                    video.appendChild(source);
+                    source.type = 'audio/mp3; codecs=aac';
+                    audio.appendChild(source);
 
-                    video.download = 'Play mp4 in VLC Player.mp4';
+                    audio.download = 'Converted Audio.mp3';
 
                     inner.appendChild(document.createElement('hr'));
                     var h2 = document.createElement('h2');
-                    h2.innerHTML = '<a href="' + source.src + '" target="_blank" download="Play mp4 in VLC Player.mp4" style="font-size:200%;color:red;">Download Converted mp4 and play in VLC player!</a>';
+                    h2.innerHTML = '<a href="' + source.src + '" target="_blank" download="Converted Audio.mp3" style="font-size:200%;color:red;">Download Converted AAC:</a>';
                     inner.appendChild(h2);
                     h2.style.display = 'block';
-                    inner.appendChild(video);
+                    inner.appendChild(audio);
 
-                    video.tabIndex = 0;
-                    video.focus();
-                    video.play();
+                    audio.tabIndex = 0;
+                    audio.focus();
+                    audio.play();
 
-                    document.querySelector('#record-video').disabled = false;
+                    document.querySelector('#record-audio').disabled = false;
                 }
 
                 var logsPreview = document.getElementById('logs-preview');
@@ -328,7 +278,7 @@
                 }
 
                 window.onbeforeunload = function() {
-                    document.querySelector('#record-video').disabled = false;
+                    document.querySelector('#record-audio').disabled = false;
                 };
             </script>
 
